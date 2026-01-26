@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Botanical Lens: Real-Time Classifier</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background-color: #f0f4f8; 
+            text-align: center; 
+            color: #333; 
+            margin: 0; padding: 20px;
+        }
+        h1 { color: #2e7d32; margin-bottom: 5px; }
+        
+        /* Layout Container */
+        .main-layout {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            margin-top: 30px;
+            flex-wrap: wrap; 
+        }
+
+        /* Video Section */
+        .video-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #webcam-container { 
+            border: 5px solid #2e7d32; 
+            border-radius: 10px; 
+            line-height: 0; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        #label-container { 
+            font-size: 24px; 
+            font-weight: bold; 
+            margin-top: 15px; 
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Fact Section */
+        #fact-container {
+            background: white; 
+            width: 300px; 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: left;
+            border-left: 5px solid #1565c0; 
+            display: none; 
+        }
+
+        .fact-title { font-size: 20px; font-weight: bold; color: #1565c0; margin-bottom: 15px; }
+        
+        button {
+            padding: 12px 24px; font-size: 16px; background-color: #2e7d32;
+            color: white; border: none; border-radius: 5px; cursor: pointer;
+            margin: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        button:hover { background-color: #1b5e20; }
+        
+        /* Specific style for the mute button */
+        #mute-btn { background-color: #c62828; }
+        #mute-btn:hover { background-color: #8e0000; }
+
+        li { margin-bottom: 10px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <h1>🌿 Botanical Lens</h1>
+    <p>Point your camera at a flower to identify it.</p>
+    
+    <div>
+        <button type="button" onclick="init()">Start Camera</button>
+        <button type="button" id="mute-btn" onclick="stopAudio()">Stop Voice</button>
+    </div>
+
+    <div class="main-layout">
+        
+        <div class="video-section">
+            <div id="webcam-container"></div>
+            <div id="label-container">Waiting to start...</div>
+        </div>
+
+        <div id="fact-container">
+            <div class="fact-title" id="fact-header">Did you know?</div>
+            <ul id="fact-list"></ul>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script type="text/javascript">
+        // *** IMPORTANT: PASTE YOUR MODEL URL HERE ***
+        const URL = "https://teachablemachine.withgoogle.com/models/U3BDhm-Oa/";
+
+        let model, webcam, labelContainer, maxPredictions;
+        let currentSpokenClass = ""; // Tracks what we are currently reading
+        let speechEnabled = true;
+
+        // Database
+        const plantFacts = {
+            "aloevera": [ 
+                "Known as the 'Plant of Immortality' by ancient Egyptians.",
+                "Its gel contains 75 potentially active constituents like vitamins and enzymes."
+            ],
+            "spider plant": [
+                "NASA studies listed it as a top air-purifying plant for removing formaldehyde.",
+                "They produce babies called 'spiderettes' that can be rooted to grow new plants."
+            ],
+            "tulasi": [
+                "Considered an 'adaptogen' in Ayurveda, helping the body adapt to stress.",
+                "It is considered sacred in Hinduism and is often planted in the center of courtyards."
+            ],
+            "rose": [
+                "Rose petals are edible and are often used in salads, jams, and teas.",
+                "The oldest living rose bush is thought to be 1,000 years old."
+            ],
+            "nothing": [
+                "No recognizable flower plant detected.",
+                "Please show a correct flower."
+            ],
+            "background": [
+                "No recognizable flower plant detected.",
+                "Please show a correct flower."
+            ]
+        };
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            const flip = true; 
+            webcam = new tmImage.Webcam(300, 300, flip); 
+            await webcam.setup(); 
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+        }
+
+        async function loop() {
+            webcam.update(); 
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            let highestProb = 0;
+            let bestClass = "";
+
+            for (let i = 0; i < maxPredictions; i++) {
+                if (prediction[i].probability > highestProb) {
+                    highestProb = prediction[i].probability;
+                    bestClass = prediction[i].className;
+                }
+            }
+
+            if (highestProb > 0.85) {
+                labelContainer.innerHTML = bestClass;
+                displayFacts(bestClass);
+            } else {
+                labelContainer.innerHTML = "Scanning...";
+                document.getElementById("fact-container").style.display = "none";
+                
+                // If scanning, reset the voice so it can speak again when a flower appears
+                if(currentSpokenClass !== "scanning") {
+                    window.speechSynthesis.cancel();
+                    currentSpokenClass = "scanning";
+                }
+            }
+        }
+
+        function displayFacts(className) {
+            const factContainer = document.getElementById("fact-container");
+            const factList = document.getElementById("fact-list");
+            const factHeader = document.getElementById("fact-header");
+            const cleanName = className.toLowerCase().trim();
+
+            factContainer.style.display = "block";
+            factList.innerHTML = ""; 
+
+            if (plantFacts[cleanName]) {
+                factHeader.innerText = (cleanName === "nothing" || cleanName === "background") ? "Scan Result" : "Did you know?";
+                
+                // 1. Display Text
+                plantFacts[cleanName].forEach(fact => {
+                    let li = document.createElement("li");
+                    li.innerText = fact;
+                    factList.appendChild(li);
+                });
+
+                // 2. Read Aloud (Only if it's a NEW plant)
+                if (cleanName !== currentSpokenClass && speechEnabled) {
+                    speakFacts(cleanName, plantFacts[cleanName]);
+                    currentSpokenClass = cleanName; // Remember this plant so we don't repeat
+                }
+
+            } else {
+                factHeader.innerText = "Unknown Plant";
+                let li = document.createElement("li");
+                li.innerText = "Error: No facts found for '" + cleanName + "'.";
+                factList.appendChild(li);
+            }
+        }
+
+        function speakFacts(plantName, factsArray) {
+            // Stop any current speech
+            window.speechSynthesis.cancel();
+
+            // Create a sentence: "This is Aloe Vera. Known as..."
+            let textToSpeak = "This is " + plantName + ". " + factsArray.join(". ");
+
+            // Create the speech object
+            let utterance = new SpeechSynthesisUtterance(textToSpeak);
+            
+            // Optional: Adjust speed (0.5 is slow, 2 is fast)
+            utterance.rate = 1; 
+            
+            // Speak
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function stopAudio() {
+            window.speechSynthesis.cancel();
+            speechEnabled = false; // Prevents it from starting again automatically
+            alert("Voice disabled. Refresh page to enable again.");
+        }
+    </script>
+</body>
+</html>
