@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Botanical Lens: Smart Classifier</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background-color: #f0f4f8; 
+            text-align: center; 
+            color: #333; 
+            margin: 0; padding: 20px;
+        }
+        h1 { color: #2e7d32; margin-bottom: 5px; }
+        
+        /* Layout Container */
+        .main-layout {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 40px;
+            margin-top: 30px;
+            flex-wrap: wrap; 
+        }
+
+        /* Video Section */
+        .video-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #webcam-container { 
+            border: 5px solid #2e7d32; 
+            border-radius: 10px; 
+            line-height: 0; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        #label-container { 
+            font-size: 24px; 
+            font-weight: bold; 
+            margin-top: 15px; 
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 30px; /* Keeps layout stable */
+        }
+
+        /* Fact Section */
+        #fact-container {
+            background: white; 
+            width: 300px; 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: left;
+            border-left: 5px solid #1565c0; 
+            display: none; 
+        }
+
+        .fact-title { font-size: 20px; font-weight: bold; color: #1565c0; margin-bottom: 15px; }
+        
+        button {
+            padding: 12px 24px; font-size: 16px; background-color: #2e7d32;
+            color: white; border: none; border-radius: 5px; cursor: pointer;
+            margin: 10px 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        button:hover { background-color: #1b5e20; }
+        
+        #mute-btn { background-color: #c62828; }
+        #mute-btn:hover { background-color: #8e0000; }
+
+        li { margin-bottom: 10px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <h1>🌿 Botanical Lens</h1>
+    <p>Point your camera at a flower.</p>
+    
+    <div>
+        <button type="button" onclick="init()">Start Camera</button>
+        <button type="button" id="mute-btn" onclick="stopAudio()">Stop Voice</button>
+    </div>
+
+    <div class="main-layout">
+        <div class="video-section">
+            <div id="webcam-container"></div>
+            <div id="label-container">Waiting to start...</div>
+        </div>
+
+        <div id="fact-container">
+            <div class="fact-title" id="fact-header">Did you know?</div>
+            <ul id="fact-list"></ul>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script type="text/javascript">
+        // *** PASTE YOUR MODEL URL HERE ***
+        const URL = "https://teachablemachine.withgoogle.com/models/U3BDhm-Oa/";
+
+        let model, webcam, labelContainer, maxPredictions;
+        
+        // --- Smart Logic Variables ---
+        let lastDetectedClass = ""; // What is currently on screen
+        let lastSpokenClass = "";   // What we last read aloud (prevents repeating)
+        let gracePeriodTimer = null; // The timer for "holding" the info
+        let speechEnabled = true;
+
+        const plantFacts = {
+            "aloevera": [ 
+                "Known as the 'Plant of Immortality' by ancient Egyptians.",
+                "Its gel contains 75 potentially active constituents like vitamins and enzymes."
+            ],
+            "spider plant": [
+                "NASA studies listed it as a top air-purifying plant for removing formaldehyde.",
+                "They produce babies called 'spiderettes' that can be rooted to grow new plants."
+            ],
+            "tulasi": [
+                "Considered an 'adaptogen' in Ayurveda, helping the body adapt to stress.",
+                "It is considered sacred in Hinduism and is often planted in the center of courtyards."
+            ],
+            "rose": [
+                "Rose petals are edible and are often used in salads, jams, and teas.",
+                "The oldest living rose bush is thought to be 1,000 years old."
+            ]
+            // Note: We removed "Nothing" from here because we handle it in code now
+        };
+
+        async function init() {
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            const flip = true; 
+            webcam = new tmImage.Webcam(300, 300, flip); 
+            await webcam.setup(); 
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+        }
+
+        async function loop() {
+            webcam.update(); 
+            await predict();
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            let highestProb = 0;
+            let bestClass = "";
+
+            for (let i = 0; i < maxPredictions; i++) {
+                if (prediction[i].probability > highestProb) {
+                    highestProb = prediction[i].probability;
+                    bestClass = prediction[i].className;
+                }
+            }
+
+            const cleanName = bestClass.toLowerCase().trim();
+            const isNothing = (cleanName === "nothing" || cleanName === "background");
+
+            // LOGIC: High Confidence Plant Detected
+            if (highestProb > 0.85 && !isNothing) {
+                
+                // 1. Cancel any "Clear Screen" timer because we found a plant!
+                if (gracePeriodTimer) {
+                    clearTimeout(gracePeriodTimer);
+                    gracePeriodTimer = null;
+                }
+
+                // 2. Update the screen immediately (even if it's the same plant)
+                labelContainer.innerHTML = bestClass;
+                displayFacts(bestClass);
+                
+                // 3. Audio Logic: Only speak if it's a NEW plant we haven't just spoken about
+                if (cleanName !== lastSpokenClass && speechEnabled) {
+                    speakFacts(bestClass, plantFacts[cleanName]);
+                    lastSpokenClass = cleanName; // Remember we spoke about this
+                }
+
+                lastDetectedClass = cleanName;
+
+            } else {
+                // LOGIC: Nothing Detected (or Low Confidence)
+                
+                // If we haven't started a timer yet, start one now.
+                if (!gracePeriodTimer) {
+                    // Start a 4-second countdown
+                    gracePeriodTimer = setTimeout(() => {
+                        // This code runs only after 4 seconds of silence
+                        resetUI(); 
+                    }, 4000); // 4000 milliseconds = 4 seconds
+                }
+                
+                // Note: We do NOT clear the text here immediately. 
+                // We just let the old text sit there until the timer finishes.
+            }
+        }
+
+        function displayFacts(className) {
+            const factContainer = document.getElementById("fact-container");
+            const factList = document.getElementById("fact-list");
+            const factHeader = document.getElementById("fact-header");
+            const cleanName = className.toLowerCase().trim();
+
+            // Only update DOM if necessary (optional optimization)
+            factContainer.style.display = "block";
+            factList.innerHTML = ""; 
+
+            if (plantFacts[cleanName]) {
+                factHeader.innerText = "Did you know?";
+                plantFacts[cleanName].forEach(fact => {
+                    let li = document.createElement("li");
+                    li.innerText = fact;
+                    factList.appendChild(li);
+                });
+            } else {
+                // Unknown plant handling
+                factHeader.innerText = "Unknown Plant";
+                factList.innerHTML = "<li>No facts found for this plant.</li>";
+            }
+        }
+
+        function resetUI() {
+            // This function runs when the "Grace Period" expires
+            document.getElementById("label-container").innerHTML = "No plant detected";
+            document.getElementById("fact-container").style.display = "none";
+            lastDetectedClass = "";
+            // We do NOT reset lastSpokenClass here. 
+            // Why? If I show a Rose, hide it for 10 seconds, and show it again,
+            // the requirements say "Audio triggers only the first time".
+            // If you WANT it to speak again after a long break, un-comment the next line:
+            // lastSpokenClass = ""; 
+        }
+
+        function speakFacts(plantName, factsArray) {
+            window.speechSynthesis.cancel();
+            if(factsArray) {
+                let textToSpeak = "This is " + plantName + ". " + factsArray.join(". ");
+                let utterance = new SpeechSynthesisUtterance(textToSpeak);
+                utterance.rate = 1; 
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function stopAudio() {
+            window.speechSynthesis.cancel();
+            speechEnabled = false;
+            alert("Voice disabled.");
+        }
+    </script>
+</body>
+</html>
