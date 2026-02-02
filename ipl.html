@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>IPL 2026 Simulator</title>
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+</head>
+<body style="background-color: #0f172a; color: white; font-family: sans-serif; padding: 20px;">
+    <h1>🏏 IPL 2026 Championship</h1>
+    <p>Wait a few seconds for the game to load...</p>
+    
+    <script type="py" terminal>
+# PASTE YOUR ENTIRE PYTHON CODE HERE
+import random
+
+# --- COMPLETE 2026 DATABASE ---
+master_questions = [
+    ["Who is the captain of LSG for the 2026 season?", "A", "Rishabh Pant", ["A) Rishabh Pant", "B) KL Rahul", "C) Nicholas Pooran", "D) Shreyas Iyer"]],
+    ["Which RR captain was traded to CSK for the 2026 season?", "C", "Sanju Samson", ["A) Ruturaj Gaikwad", "B) Jos Buttler", "C) Sanju Samson", "D) Dhruv Jurel"]],
+    ["Who moved from CSK to RR in the 2026 trade window?", "B", "Ravindra Jadeja", ["A) Shivam Dube", "B) Ravindra Jadeja", "C) Axar Patel", "D) Prashant Veer"]],
+    ["Who is the captain of the defending champions, RCB?", "B", "Rajat Patidar", ["A) Virat Kohli", "B) Rajat Patidar", "C) Faf du Plessis", "D) Phil Salt"]],
+    ["Who became the most expensive overseas player (25.2 Cr) for KKR?", "C", "Cameron Green", ["A) Mitchell Starc", "B) Pat Cummins", "C) Cameron Green", "D) Glenn Maxwell"]],
+    ["Which legend is playing as an 'Uncapped' player for CSK?", "D", "MS Dhoni", ["A) Ajinkya Rahane", "B) Suresh Raina", "C) Ambati Rayudu", "D) MS Dhoni"]],
+    ["Who is leading Gujarat Titans (GT) in 2026?", "C", "Shubman Gill", ["A) Rashid Khan", "B) Sai Sudharsan", "C) Shubman Gill", "D) Kane Williamson"]],
+    ["Who is the captain of Delhi Capitals (DC) in 2026?", "C", "Axar Patel", ["A) Rishabh Pant", "B) David Miller", "C) Axar Patel", "D) KL Rahul"]],
+    ["Which Aussie captain is leading SRH?", "C", "Pat Cummins", ["A) Travis Head", "B) Mitchell Marsh", "C) Pat Cummins", "D) Glenn Maxwell"]],
+    ["Which team bought Venkatesh Iyer for 7 Cr?", "D", "RCB", ["A) KKR", "B) MI", "C) SRH", "D) RCB"]],
+    ["Which team secured Josh Inglis for 8.6 Cr?", "B", "LSG", ["A) PBKS", "B) LSG", "C) RCB", "D) DC"]],
+    ["Which team bought leg-spinner Rahul Chahar for 5.2 Cr?", "B", "CSK", ["A) PBKS", "B) CSK", "C) MI", "D) RR"]],
+    ["Who is the lead spinner for Rajasthan Royals?", "A", "Ravi Bishnoi", ["A) Ravi Bishnoi", "B) Yuzvendra Chahal", "C) Kuldeep Yadav", "D) Adam Zampa"]],
+    ["Who is the main Indian pacer for RCB in 2026?", "D", "Yash Dayal", ["A) Siraj", "B) Akash Deep", "C) Mukesh Kumar", "D) Yash Dayal"]],
+    ["Which team signed Aussie pacer Jacob Duffy?", "A", "RCB", ["A) RCB", "B) KKR", "C) MI", "D) PBKS"]],
+    # ... (Imagine the rest of your 30 questions here)
+]
+
+TEAMS = ["CSK", "MI", "RCB", "KKR", "DC", "RR", "GT", "LSG", "PBKS", "SRH"]
+stats = {team: {"W": 0, "L": 0, "Pts": 0} for team in TEAMS}
+
+def play_match(team_a, team_b, is_user):
+    if not is_user:
+        w = random.choice([team_a, team_b]); stats[w]['W'] += 1; stats[w]['Pts'] += 2
+        stats[team_a if w == team_b else team_b]['L'] += 1
+        return w
+
+    print(f"\n🏏 {team_a} vs {team_b}")
+    toss = input("🪙 Toss (Heads/Tails): ").capitalize()
+    user_wins = random.choice(["Heads", "Tails"]) == toss
+    mode = input("You won! Bat or Bowl? ").capitalize() if user_wins else random.choice(["Bat", "Bowl"])
+    if not user_wins: print(f"You lost the toss. {team_b} chose to {mode} first."); mode = "Bowl" if mode == "Bat" else "Bat"
+
+    score, target = 0, random.randint(20, 30) if mode == "Bowl" else 24
+    if mode == "Bowl": print(f"🎯 Target: {target}")
+
+    for q in random.sample(master_questions, 6):
+        print(f"\nQ: {q[0]}\n" + "\n".join(q[3]))
+        if input("Shot: ").strip().upper() == q[1]:
+            r = random.choice([4, 6]); score += r; print(f"🔥 {r} Runs!")
+        else: print(f"❌ Dot! Correct was {q[1]}")
+
+    winner = team_a if score >= target else team_b
+    stats[winner]['W'] += 1; stats[winner]['Pts'] += 2
+    stats[team_a if winner == team_b else team_b]['L'] += 1
+    print(f"🏁 {winner} wins!")
+    return winner
+
+# --- TOURNAMENT ---
+u_team = input("Pick Team: ").upper()
+opps = [t for t in TEAMS if t != u_team]
+for i in range(5):
+    play_match(u_team, opps[i], True)
+    rankings = sorted(stats.items(), key=lambda x: x[1]['Pts'], reverse=True)
+    print("\nTOP 4:", [r[0] for r in rankings[:4]])
+
+# --- PLAYOFFS ---
+t1, t2, t3, t4 = [r[0] for r in rankings[:4]]
+q1w = play_match(t1, t2, u_team in [t1, t2]); q1l = t1 if q1w == t2 else t2
+elw = play_match(t3, t4, u_team in [t3, t4])
+q2w = play_match(q1l, elw, u_team in [q1l, elw])
+champ = play_match(q1w, q2w, u_team in [q1w, q2w]) # Fixed variable name here
+
+print(f"\n🎇 {champ} ARE THE IPL 2026 CHAMPIONS! 🎇")
+    </script>
+</body>
+</html>
