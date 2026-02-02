@@ -3,19 +3,19 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>IPL 2026 Simulator</title>
+    <title>IPL 2026 Championship</title>
     <link rel="stylesheet" href="https://pyscript.net/releases/2025.2.3/core.css">
     <script type="module" src="https://pyscript.net/releases/2025.2.3/core.js"></script>
 </head>
 <body style="background-color: #0f172a; color: white; font-family: sans-serif; padding: 20px;">
-    <h1>🏏 IPL 2026 Championship</h1>
-    <p>Wait a few seconds for the game to load...</p>
+    <h1 style="color: #fbbf24; text-align: center;">🏏 IPL 2026: The Ultimate Simulator</h1>
+    <p style="text-align: center;">Wait for the terminal to load, then click inside it to type.</p>
     
     <script type="py" terminal worker>
-# PASTE YOUR ENTIRE PYTHON CODE HERE
 import random
+import asyncio
 
-# --- COMPLETE 2026 DATABASE ---
+# --- 30 QUESTION DATABASE ---
 master_questions = [
     ["Who is the captain of LSG for the 2026 season?", "A", "Rishabh Pant", ["A) Rishabh Pant", "B) KL Rahul", "C) Nicholas Pooran", "D) Shreyas Iyer"]],
     ["Which RR captain was traded to CSK for the 2026 season?", "C", "Sanju Samson", ["A) Ruturaj Gaikwad", "B) Jos Buttler", "C) Sanju Samson", "D) Dhruv Jurel"]],
@@ -32,32 +32,57 @@ master_questions = [
     ["Who is the lead spinner for Rajasthan Royals?", "A", "Ravi Bishnoi", ["A) Ravi Bishnoi", "B) Yuzvendra Chahal", "C) Kuldeep Yadav", "D) Adam Zampa"]],
     ["Who is the main Indian pacer for RCB in 2026?", "D", "Yash Dayal", ["A) Siraj", "B) Akash Deep", "C) Mukesh Kumar", "D) Yash Dayal"]],
     ["Which team signed Aussie pacer Jacob Duffy?", "A", "RCB", ["A) RCB", "B) KKR", "C) MI", "D) PBKS"]],
-    # ... (Imagine the rest of your 30 questions here)
+    ["Which team does Musheer Khan play for?", "C", "PBKS", ["A) MI", "B) CSK", "C) PBKS", "D) GT"]],
+    ["Who is the primary wicketkeeper for SRH in 2026?", "B", "Ishan Kishan", ["A) Klaasen", "B) Ishan Kishan", "C) Samson", "D) Pant"]],
+    ["Who is Abhishek Sharma's opening partner at SRH?", "D", "Travis Head", ["A) Warner", "B) McGurk", "C) Smith", "D) Travis Head"]],
+    ["Which South African is the powerhouse for DC?", "A", "Tristan Stubbs", ["A) Tristan Stubbs", "B) Miller", "C) De Kock", "D) Faf"]],
+    ["Which Afghan spinner was retained by GT?", "C", "Rashid Khan", ["A) Noor", "B) Mujeeb", "C) Rashid Khan", "D) Ghazanfar"]],
+    ["Which team traded for Shardul Thakur from LSG?", "B", "MI", ["A) CSK", "B) MI", "C) DC", "D) KKR"]],
+    ["Who joined MI for 1 Cr in the 2026 auction?", "A", "Quinton de Kock", ["A) De Kock", "B) Kishan", "C) Buttler", "D) Sharma"]],
+    ["Which team did Mohammed Shami join from SRH?", "D", "LSG", ["A) MI", "B) RCB", "C) KKR", "D) LSG"]],
+    ["Who became the most expensive Indian player for KKR?", "B", "Hardik Pandya", ["A) Rohit", "B) Hardik", "C) Kohli", "D) Rahul"]],
+    ["Which team bought Sam Curran for 11.5 Cr?", "D", "RR", ["A) CSK", "B) MI", "C) PBKS", "D) RR"]],
+    ["Who is the pace spearhead for Mumbai Indians?", "A", "Jasprit Bumrah", ["A) Bumrah", "B) Boult", "C) Coetzee", "D) Siraj"]],
+    ["Which 150kmph pacer is LSG's X-factor?", "C", "Mayank Yadav", ["A) Umran", "B) Nortje", "C) Mayank", "D) Tyagi"]],
+    ["Which Kiwi joined KKR for 2 Cr?", "B", "Rachin Ravindra", ["A) Mitchell", "B) Rachin", "C) Phillips", "D) Santner"]],
+    ["Which team did SRH pay 13 Cr to get Livingstone?", "A", "SRH", ["A) SRH", "B) PBKS", "C) RCB", "D) MI"]],
+    ["Who is the death specialist for KKR?", "C", "Matheesha Pathirana", ["A) Starc", "B) Mavi", "C) Pathirana", "D) Harshit"]]
 ]
 
 TEAMS = ["CSK", "MI", "RCB", "KKR", "DC", "RR", "GT", "LSG", "PBKS", "SRH"]
 stats = {team: {"W": 0, "L": 0, "Pts": 0} for team in TEAMS}
 
-def play_match(team_a, team_b, is_user):
+async def play_match(team_a, team_b, is_user):
     if not is_user:
-        w = random.choice([team_a, team_b]); stats[w]['W'] += 1; stats[w]['Pts'] += 2
+        w = random.choice([team_a, team_b])
+        stats[w]['W'] += 1; stats[w]['Pts'] += 2
         stats[team_a if w == team_b else team_b]['L'] += 1
         return w
 
     print(f"\n🏏 {team_a} vs {team_b}")
-    toss = input("🪙 Toss (Heads/Tails): ").capitalize()
-    user_wins = random.choice(["Heads", "Tails"]) == toss
-    mode = input("You won! Bat or Bowl? ").capitalize() if user_wins else random.choice(["Bat", "Bowl"])
-    if not user_wins: print(f"You lost the toss. {team_b} chose to {mode} first."); mode = "Bowl" if mode == "Bat" else "Bat"
+    toss_input = await input("🪙 Toss (Heads/Tails): ")
+    toss_call = toss_input.strip().capitalize()
+    user_wins = random.choice(["Heads", "Tails"]) == toss_call
+    
+    if user_wins:
+        mode_input = await input("You won! Bat or Bowl? ")
+        mode = mode_input.strip().capitalize()
+    else:
+        opp_mode = random.choice(["Bat", "Bowl"])
+        print(f"You lost the toss. {team_b} chose to {opp_mode} first.")
+        mode = "Bowl" if opp_mode == "Bat" else "Bat"
 
     score, target = 0, random.randint(20, 30) if mode == "Bowl" else 24
-    if mode == "Bowl": print(f"🎯 Target: {target}")
+    if mode == "Bowl": print(f"🎯 Target to chase: {target}")
 
-    for q in random.sample(master_questions, 6):
-        print(f"\nQ: {q[0]}\n" + "\n".join(q[3]))
-        if input("Shot: ").strip().upper() == q[1]:
+    for i, q in enumerate(random.sample(master_questions, 6)):
+        print(f"\nBall {i+1} | Score: {score}")
+        print(f"Q: {q[0]}")
+        for opt in q[3]: print(f"  {opt}")
+        ans_input = await input("Your Shot (A/B/C/D): ")
+        if ans_input.strip().upper() == q[1]:
             r = random.choice([4, 6]); score += r; print(f"🔥 {r} Runs!")
-        else: print(f"❌ Dot! Correct was {q[1]}")
+        else: print(f"❌ Dot! Correct: {q[1]}")
 
     winner = team_a if score >= target else team_b
     stats[winner]['W'] += 1; stats[winner]['Pts'] += 2
@@ -65,22 +90,24 @@ def play_match(team_a, team_b, is_user):
     print(f"🏁 {winner} wins!")
     return winner
 
-# --- TOURNAMENT ---
-u_team = input("Pick Team: ").upper()
-opps = [t for t in TEAMS if t != u_team]
-for i in range(5):
-    play_match(u_team, opps[i], True)
-    rankings = sorted(stats.items(), key=lambda x: x[1]['Pts'], reverse=True)
-    print("\nTOP 4:", [r[0] for r in rankings[:4]])
+async def start_tournament():
+    user_pick = await input("Pick Your Team (CSK, MI, RCB, etc.): ")
+    u_team = user_pick.strip().upper()
+    opps = [t for t in TEAMS if t != u_team]
+    random.shuffle(opps)
 
-# --- PLAYOFFS ---
-t1, t2, t3, t4 = [r[0] for r in rankings[:4]]
-q1w = play_match(t1, t2, u_team in [t1, t2]); q1l = t1 if q1w == t2 else t2
-elw = play_match(t3, t4, u_team in [t3, t4])
-q2w = play_match(q1l, elw, u_team in [q1l, elw])
-champ = play_match(q1w, q2w, u_team in [q1w, q2w]) # Fixed variable name here
+    for i in range(5):
+        await play_match(u_team, opps[i], True)
+        # Simulate others
+        others = [t for t in TEAMS if t != u_team and t != opps[i]]
+        for j in range(0, len(others), 2): await play_match(others[j], others[j+1], False)
+        
+        rankings = sorted(stats.items(), key=lambda x: x[1]['Pts'], reverse=True)
+        print("\n🏆 POINTS TABLE TOP 4:", [r[0] for r in rankings[:4]])
 
-print(f"\n🎇 {champ} ARE THE IPL 2026 CHAMPIONS! 🎇")
-    </script>
-</body>
-</html>
+    # Playoffs
+    t1, t2, t3, t4 = [r[0] for r in rankings[:4]]
+    print("\n🔥 QUALIFIER 1")
+    q1w = await play_match(t1, t2, u_team in [t1, t2])
+    q1l = t1 if q1w == t2 else t2
+    print("\n⚡ ELIMINATOR")
